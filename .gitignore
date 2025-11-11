@@ -1,0 +1,36 @@
+# macOS system files
+.DS_Store
+
+
+# Python
+__pycache__/
+
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+
+# Jupyter notebooks
+.ipynb_checkpoints/
+
+# VS Code
+.vscode/
+
+
+# OS or tool caches
+__MACOSX/
+
+
+# Project-specific
+*.DS_Store
+*.cache
+*.lock
+*.tmp
+
+# Local configs / credentials
+*.env
+.env*
+secrets.json
+credentials.json
