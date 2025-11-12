@@ -6,9 +6,9 @@ Each tool is standalone, minimal, and easy to understand — designed to simplif
 ## Module: image_tools
 Image manipulations toolbox.
 
-### Script: rename_images_by_exif.py
-**Purpose**  
-Rename image files using EXIF metadata — creation date, precise time (milliseconds), and GPS coordinates (if available).  
+### Script: Rename Images by EXIF
+   
+**Purpose:** Rename image files using EXIF metadata — creation date, precise time (milliseconds), and GPS coordinates (if available).  
 If EXIF data is missing, uses file creation time as a fallback.  
 ---
 **How it works**
