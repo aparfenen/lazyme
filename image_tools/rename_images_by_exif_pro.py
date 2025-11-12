@@ -63,7 +63,10 @@ SUPPORTED_FORMATS = {
 }
 
 # Default filename template
-DEFAULT_TEMPLATE = "{date}_{time}_{ms}{gps}_{original}"
+# Format: MM/DD/YYYY - HH-MM-SS-mmm - Location - Device
+# Use --keep-original flag to include original filename
+DEFAULT_TEMPLATE = "{month}-{day}-{year} - {hours}-{minutes}-{seconds}-{ms} - {location} - {device}"
+DEFAULT_TEMPLATE_WITH_ORIGINAL = "{month}-{day}-{year} - {hours}-{minutes}-{seconds}-{ms} - {location} - {device} - {original}"
 
 # GPS coordinate precision
 GPS_PRECISION = 4
@@ -465,7 +468,28 @@ class FilenameGenerator:
             'year': metadata.date_time.strftime("%Y"),
             'month': metadata.date_time.strftime("%m"),
             'day': metadata.date_time.strftime("%d"),
+            'hours': metadata.date_time.strftime("%H"),
+            'minutes': metadata.date_time.strftime("%M"),
+            'seconds': metadata.date_time.strftime("%S"),
         }
+        
+        # Location from GPS
+        if metadata.latitude and metadata.longitude:
+            # Format: lat37.7749_lon-122.4194 (compact)
+            lat_str = f"{abs(metadata.latitude):.4f}{'N' if metadata.latitude >= 0 else 'S'}"
+            lon_str = f"{abs(metadata.longitude):.4f}{'E' if metadata.longitude >= 0 else 'W'}"
+            variables['location'] = f"{lat_str}_{lon_str}"
+        else:
+            variables['location'] = "NoGPS"
+        
+        # Device (camera make + model)
+        if metadata.make and metadata.model:
+            device = f"{metadata.make} {metadata.model}".strip()
+            variables['device'] = cls.sanitize_filename(device).replace("_", " ")
+        elif metadata.make:
+            variables['device'] = cls.sanitize_filename(metadata.make).replace("_", " ")
+        else:
+            variables['device'] = "Unknown"
 
         if include_camera and metadata.make:
             camera = f"{metadata.make}_{metadata.model}".replace(" ", "_")
@@ -774,8 +798,11 @@ Examples:
   # Dry run (preview)
   python3 %(prog)s /path/to/photos
   
-  # Actually rename files
+  # Actually rename files (without original names)
   python3 %(prog)s /path/to/photos --no-dry-run
+  
+  # Keep original filenames in new names
+  python3 %(prog)s /path/to/photos --keep-original --no-dry-run
   
   # Recursive processing
   python3 %(prog)s /path/to/photos -r --no-dry-run
@@ -783,22 +810,27 @@ Examples:
   # Copy with custom destination
   python3 %(prog)s /path/to/photos --copy -d /path/to/renamed --no-dry-run
   
-  # Custom template with camera info
-  python3 %(prog)s /path/to/photos --template "{year}{month}{day}_{camera}_{time}" --include-camera --no-dry-run
+  # Custom template
+  python3 %(prog)s /path/to/photos --template "{year}{month}{day}_{device}" --no-dry-run
   
   # Preserve directory structure
   python3 %(prog)s /path/to/photos --copy -d /backup --preserve-structure --no-dry-run
 
 Template variables:
-  {date}     - YYYYMMDD
-  {time}     - HHMMSS
+  {month}    - MM (01-12)
+  {day}      - DD (01-31)
+  {year}     - YYYY (e.g. 2025)
+  {hours}    - HH (00-23)
+  {minutes}  - MM (00-59)
+  {seconds}  - SS (00-59)
   {ms}       - milliseconds (000-999)
-  {gps}      - GPS coordinates (if available)
-  {original} - original filename
-  {year}     - YYYY
-  {month}    - MM
-  {day}      - DD
-  {camera}   - camera make and model (requires --include-camera)
+  {location} - GPS location (37.7749N_122.4194W or NoGPS)
+  {device}   - Camera make and model (e.g. "Apple iPhone 14 Pro")
+  {original} - original filename (without extension)
+  {date}     - YYYYMMDD (for backward compatibility)
+  {time}     - HHMMSS (for backward compatibility)
+  {gps}      - GPS coordinates in old format (for backward compatibility)
+  {camera}   - camera make_model (requires --include-camera)
         """
     )
 
@@ -858,6 +890,12 @@ Template variables:
         "--include-camera",
         action="store_true",
         help="Include camera make/model in filename"
+    )
+    
+    parser.add_argument(
+        "--keep-original",
+        action="store_true",
+        help="Keep original filename in the new name (default: OFF)"
     )
     
     parser.add_argument(
@@ -933,9 +971,21 @@ def main():
 
     print(f"Found {len(files)} image file(s)")
     
+    # Choose template based on flags
+    template = args.template
+    if template == DEFAULT_TEMPLATE and args.keep_original:
+        # User didn't specify custom template but wants original name
+        template = DEFAULT_TEMPLATE_WITH_ORIGINAL
+    elif template == DEFAULT_TEMPLATE_WITH_ORIGINAL and not args.keep_original:
+        # Backwards compatibility: if old default was set, respect --keep-original flag
+        template = DEFAULT_TEMPLATE
+    
     if args.dry_run:
         print("\n🔍 DRY RUN MODE - No files will be modified")
-        print("Use --no-dry-run to actually rename files\n")
+        print("Use --no-dry-run to actually rename files")
+        if not args.keep_original:
+            print("💡 Tip: Use --keep-original to include original filename in new name")
+        print()
 
     # Process files
     base_dir = args.folder if args.folder.is_dir() else args.folder.parent
@@ -944,7 +994,7 @@ def main():
         files=files,
         dest_dir=args.dest,
         copy_mode=args.copy,
-        template=args.template,
+        template=template,  # Use the chosen template
         include_camera=args.include_camera,
         dry_run=args.dry_run,
         preserve_structure=args.preserve_structure,
