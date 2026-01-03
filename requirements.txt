@@ -1,0 +1,15 @@
+# LazyMe Image Tools - Python Dependencies
+
+# Core image processing
+Pillow>=10.0.0
+
+# HEIC/HEIF support (optional but recommended)
+pillow-heif>=0.13.0
+
+# Progress bars (optional but recommended)
+tqdm>=4.66.0
+
+# Note: exiftool is a system dependency, not a Python package
+# Install separately:
+#   macOS: brew install exiftool
+#   Ubuntu/Debian: sudo apt install libimage-exiftool-perl
